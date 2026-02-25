@@ -1,103 +1,113 @@
 name: "CodeQL Advanced Scan"
 
 on:
-    push:
-        branches: [main]
-    pull_request:
-        branches: [main]
-    schedule:
-        - cron: "30 6 * * 1"
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "30 6 * * 1"
 
 permissions:
-    id-token: write # Required for OIDC token generation
-    contents: read # Required for actions/checkout
-    security-events: write # Required for uploading CodeQL results
-    actions: read # Required for private repo workflows
+  id-token: write # Required for OIDC token generation
+  contents: read # Required for actions/checkout
+  security-events: write # Required for uploading CodeQL results
+  actions: read # Required for private repo workflows
 
 jobs:
-    analyze:
-        name: Analyze Java
-        runs-on: ubuntu-latest
-        strategy:
-            fail-fast: false
-            matrix:
-                language: ["java-kotlin"]
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: java-kotlin
+            build-mode: manual
 
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-            - name: Set up JDK 17
-              uses: actions/setup-java@v4
-              with:
-                  java-version: "17"
-                  distribution: "temurin"
+      - name: Set up JDK 17
+        if: matrix.language == 'java-kotlin'
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
 
-            # OIDC: Assume AWS role without long-lived secrets
-            - name: Configure AWS credentials via OIDC
-              uses: aws-actions/configure-aws-credentials@v4
-              with:
-                  role-to-assume: arn:aws:iam::806414315277:role/GitHubActions-CodeQL-Role
-                  role-session-name: codeql-session
-                  aws-region: us-east-1
+      # OIDC: Assume AWS role without long-lived secrets
+      - name: Configure AWS credentials via OIDC
+        if: matrix.language == 'java-kotlin'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::806414315277:role/GitHubActions-CodeQL-Role
+          role-session-name: codeql-session
+          aws-region: us-east-1
 
-            # Get a short-lived CodeArtifact auth token using the assumed role
-            - name: Get CodeArtifact auth token
-              run: |
-                  CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token \
-                    --domain cback \
-                    --domain-owner 806414315277 \
-                    --region us-east-1 \
-                    --query authorizationToken \
-                    --output text)
-                  echo "CODEARTIFACT_AUTH_TOKEN=$CODEARTIFACT_AUTH_TOKEN" >> $GITHUB_ENV
-                  echo "::add-mask::$CODEARTIFACT_AUTH_TOKEN"
+      # Get a short-lived CodeArtifact auth token using the assumed role
+      - name: Get CodeArtifact auth token
+        if: matrix.language == 'java-kotlin'
+        run: |
+          CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token \
+            --domain cback \
+            --domain-owner 806414315277 \
+            --region us-east-1 \
+            --query authorizationToken \
+            --output text)
+          echo "CODEARTIFACT_AUTH_TOKEN=$CODEARTIFACT_AUTH_TOKEN" >> $GITHUB_ENV
+          echo "::add-mask::$CODEARTIFACT_AUTH_TOKEN"
 
-            # Generate Maven settings.xml with CodeArtifact credentials
-            - name: Configure Maven settings
-              run: |
-                  mkdir -p ~/.m2
-                  cat > ~/.m2/settings.xml << EOF
-                  <settings>
-                    <servers>
-                      <server>
-                        <id>cback-codeql-test-repo</id>
-                        <username>aws</username>
-                        <password>${CODEARTIFACT_AUTH_TOKEN}</password>
-                      </server>
-                    </servers>
-                    <profiles>
-                      <profile>
-                        <id>cback-codeql-test-repo</id>
-                        <activation>
-                          <activeByDefault>true</activeByDefault>
-                        </activation>
-                        <repositories>
-                          <repository>
-                            <id>cback-codeql-test-repo</id>
-                            <url>https://cback-806414315277.d.codeartifact.us-east-1.amazonaws.com/maven/codeql-test-repo/</url>
-                          </repository>
-                        </repositories>
-                      </profile>
-                    </profiles>
-                  </settings>
-                  EOF
+      # Generate Maven settings.xml with CodeArtifact credentials
+      - name: Configure Maven settings
+        if: matrix.language == 'java-kotlin'
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << EOF
+          <settings>
+            <servers>
+              <server>
+                <id>cback-codeql-test-repo</id>
+                <username>aws</username>
+                <password>${CODEARTIFACT_AUTH_TOKEN}</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>cback-codeql-test-repo</id>
+                <activation>
+                  <activeByDefault>true</activeByDefault>
+                </activation>
+                <repositories>
+                  <repository>
+                    <id>cback-codeql-test-repo</id>
+                    <url>https://cback-806414315277.d.codeartifact.us-east-1.amazonaws.com/maven/codeql-test-repo/</url>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+          </settings>
+          EOF
 
-            # Initialize CodeQL for Java analysis
-            - name: Initialize CodeQL
-              uses: github/codeql-action/init@v4
-              with:
-                  languages: ${{ matrix.language }}
-                  queries: security-extended
+      # Initialize CodeQL for scanning
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended
 
-            # Build with Maven — resolves shared-utils from CodeArtifact
-            - name: Build with Maven
-              run: |
-                  cd vuln-app
-                  mvn compile -B -s ~/.m2/settings.xml
+      # Build with Maven (only for java-kotlin manual build)
+      - name: Build with Maven
+        if: matrix.build-mode == 'manual'
+        run: |
+          cd vuln-app
+          mvn compile -B -s ~/.m2/settings.xml
 
-            # Run CodeQL analysis and upload results
-            - name: Perform CodeQL Analysis
-              uses: github/codeql-action/analyze@v4
-              with:
-                  category: "/language:${{ matrix.language }}"
+      # Run CodeQL analysis and upload results
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
