@@ -2,6 +2,8 @@ package com.cback.vulnapp;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.Base64;
 
 /**
@@ -66,5 +68,20 @@ public class AuthService {
      */
     public String getDbConnectionString() {
         return DB_CONNECTION_STRING + "?user=" + DB_USER + "&password=" + DB_PASSWORD;
+    }
+
+    /**
+     * Opens a database connection using hardcoded credentials.
+     *
+     * VULNERABLE (CWE-798): Hardcoded password flows directly into
+     * DriverManager.getConnection(), making it detectable by CodeQL.
+     */
+    public Connection getConnection() throws Exception {
+        // VULNERABLE: hardcoded credentials used in connection
+        return DriverManager.getConnection(
+            "jdbc:mysql://prod-db.internal:3306/appdb",
+            "root",
+            "r00tP@ssw0rd!"
+        );
     }
 }
