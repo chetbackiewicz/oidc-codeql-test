@@ -79,9 +79,8 @@ public class AuthService {
     public Connection getConnection() throws Exception {
         // VULNERABLE: hardcoded credentials used in connection
         return DriverManager.getConnection(
-            "jdbc:mysql://prod-db.internal:3306/appdb",
-            "root",
-            "r00tP@ssw0rd!"
-        );
+                "jdbc:mysql://prod-db.internal:3306/appdb",
+                "root",
+                "r00tP@ssw0rd!");
     }
 }

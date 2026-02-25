@@ -163,8 +163,7 @@ public class UserController extends HttpServlet {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(
-                new ByteArrayInputStream(xmlInput.getBytes(StandardCharsets.UTF_8))
-            );
+                    new ByteArrayInputStream(xmlInput.getBytes(StandardCharsets.UTF_8)));
             out.println("<html><body>");
             out.println("<p>Root element: " + doc.getDocumentElement().getTagName() + "</p>");
             out.println("</body></html>");
