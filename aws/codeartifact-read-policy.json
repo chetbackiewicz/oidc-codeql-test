@@ -1,0 +1,24 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "codeartifact:GetAuthorizationToken",
+                "codeartifact:GetRepositoryEndpoint",
+                "codeartifact:ReadFromRepository"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": "sts:GetServiceBearerToken",
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "sts:AWSServiceName": "codeartifact.amazonaws.com"
+                }
+            }
+        }
+    ]
+}

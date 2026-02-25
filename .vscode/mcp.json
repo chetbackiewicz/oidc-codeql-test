@@ -1,0 +1,29 @@
+{
+	"inputs": [],
+	"servers": {
+		"playwright": {
+			"command": "npx",
+			"args": [
+				"@playwright/mcp@latest",
+				"--browser=msedge"
+			],
+			"type": "stdio"
+		},
+		"github-remote": {
+			"type": "http",
+			"url": "https://api.githubcopilot.com/mcp/",
+			"headers": {
+				"X-MCP-Toolsets": "actions, code_security, dependabot, discussions, issues, orgs, projects, pull_requests, repos, secret_protection, security_advisories, copilot, copilot_spaces"
+			}
+		},
+		"github-agentic-workflows": {
+			"command": "gh",
+			"args": [
+				"aw",
+				"mcp-server"
+			],
+			"cwd": "${workspaceFolder}",
+			"type": "stdio"
+		}
+	}
+}
