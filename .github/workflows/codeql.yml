@@ -9,10 +9,10 @@ on:
     - cron: "30 6 * * 1"
 
 permissions:
-  id-token: write # Required for OIDC token generation
-  contents: read # Required for actions/checkout
-  security-events: write # Required for uploading CodeQL results
-  actions: read # Required for private repo workflows
+  id-token: write 
+  contents: read
+  security-events: write 
+  actions: read 
 
 jobs:
   analyze:
@@ -38,7 +38,6 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
-      # OIDC: Assume AWS role without long-lived secrets
       - name: Configure AWS credentials via OIDC
         if: matrix.language == 'java-kotlin'
         uses: aws-actions/configure-aws-credentials@v4
@@ -47,7 +46,6 @@ jobs:
           role-session-name: codeql-session
           aws-region: us-east-1
 
-      # Get a short-lived CodeArtifact auth token using the assumed role
       - name: Get CodeArtifact auth token
         if: matrix.language == 'java-kotlin'
         run: |
@@ -60,7 +58,6 @@ jobs:
           echo "CODEARTIFACT_AUTH_TOKEN=$CODEARTIFACT_AUTH_TOKEN" >> $GITHUB_ENV
           echo "::add-mask::$CODEARTIFACT_AUTH_TOKEN"
 
-      # Generate Maven settings.xml with CodeArtifact credentials
       - name: Configure Maven settings
         if: matrix.language == 'java-kotlin'
         run: |
@@ -91,7 +88,6 @@ jobs:
           </settings>
           EOF
 
-      # Initialize CodeQL for scanning
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
@@ -99,14 +95,12 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           queries: security-extended
 
-      # Build with Maven (only for java-kotlin manual build)
       - name: Build with Maven
         if: matrix.build-mode == 'manual'
         run: |
           cd vuln-app
           mvn compile -B -s ~/.m2/settings.xml
 
-      # Run CodeQL analysis and upload results
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
